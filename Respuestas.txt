@@ -1,0 +1,110 @@
+Antes de leer las respuestas, cabe aclarar que debido a unas dificultades con el so del equipo que actualmente uso(el equipo es prestado, pero sirve para seguir con el semestre academico),
+es necesario aclarar que el gdb al igual que el valgrind, tienen algunos problemas y se trato de solucionar mediante lectura, pero en ningun caso, las soluciones fueron validas,
+El so del equipo es un Mac OS High Sierra, y siendo asi, algunas de las cosas encotnradas fueron estas: https://stackoverflow.com/questions/48714807/unable-to-build-and-install-valgrind-on-macos-high-sierra
+Y esta no sirvio, por otro lado, para aclarar, https://stackoverflow.com/questions/43682289/valgrind-heap-summary-error-on-mac 
+Es decir, el valgrind funciona pero de una memoria excedente en cada caso, pero si se lee y se entiende los resultados arrohjados por el valgrind, es posible encontrar lo que sucede como se explica en los ejercicios
+Por la parte del gdb, se intento hacer un downgrade y crear un certificado para el gdb, pero no sirvio, asi que para los ejercicios del gdb, se uso el gdbonline, que funciono perfectamente.
+
+
+
+
+1. Lo que ocurre es un fallo de segmentacion como se puede observar, 
+    esto se debe a que el apuntador al vovlerse null, perdio su referencia y no apunta a "ningun lugar" (ver imagen null 1)
+
+2. Como se ve en la imagen, ocurre un fallo de segmentacion igual que en el punto anterior,
+    La diferencia aqui consiste en que, usando el gdb podemos encontrar donde ocurre el fallo,
+    pues es una herramienta para el desarrollo bastante util, se evidencia entonces el fallo en
+    la linea 11 de nuestro codigo como lo dice el gdb, y se puede ver la direccion donde ocurre el
+    fallo. (Ver imagen null 2).
+
+3. Al ejecutar el programa con valgrind del siguiente modo: "valgrind --leak-check=yes ./null.out", lo que sucede es que
+    valgrind corre el codigo o lo analiza y nos dice por ej:
+
+        12 bytes in 1 blocks are definitely lost in loss record 1 of 44
+        at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+        by 0x100000F5A: main (4.c:11) 
+
+        Process terminating with default action of signal 11 (SIGSEGV)
+        Access not within mapped region at address 0x0
+        at 0x100000FA9: ??? (in ./null.out)
+
+    esto quiere decir que la direccion 0x0 no esta en el stack o no se puede acceder a la memoria ya que no existe.
+    de igual manera dice:
+        Access not within mapped region at address 0x0
+    esto signfica que la region 0x0 no se puede acceder y/o no puede ser mapeada
+    Por otro lado valgrind nos proporciona mas informacion como la siguiente:
+        definitely lost: 408 bytes in 8 blocks
+        indirectly lost: 6,864 bytes in 7 blocks
+        possibly lost: 72 bytes in 3 blocks
+        still reachable: 32 bytes in 1 blocks
+        suppressed: 11,139 bytes in 146 blocks
+    esto aqui nos dice cuanta memoria se perdio definitivamente, parcialmente, cuanta es posiblemente perdida, etc..
+    Lo que quiere decir es que, hubo memoria en nuestro codigo que no fue liberada, y los posibles apuntadores o las maneras de accerder
+    a dicha region se perdio, o que quiza talvez hay manera de poder acceder a ella, es cuestion de interpretar esta parte.
+
+    por otra parte tambien nos proporciona el error de fallo de segmentacion como en el punto anterior. ver imagenes null 3 y null 3(1)
+
+    NOTA: sobre el HEAP SUMMARY y el LEAK SUMMARY, debido a problemas del valgrind con el MAC OS High Sierra, aparece memoria de más que esta siendo
+    usada pero, interpretando los datos, se puede llegar a observar segun el codigo cual es perteneciente a el codigo y no a los procesos del sistema. 
+
+    4. 
+        - Cuando el programa se ejecuta, corre sin ningun problema y no saca ningun error (ver imagen 4(1))
+        - Cuando se ejecuta con el gdb, tambien se ejecuta sin nungun problema y no saca ningun error (ver imagen 4(2))
+        - Por otro lado, cuando se ejecuta con valgrind, aqui se pueden encontrar varias cosas, si miramos las imagenes (4(3) y 4(3-2)),
+            podemos observar que, efectivamente hay memoria perdida porque no fue liberada, esto es:
+                12 bytes in 1 blocks are definitely lost in loss record 1 of 44
+                at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                by 0x100000F5A: main (in ./4.out)
+            ya que fueron 3 posiciones de 4  bits, que se reservaron pero nunca se liberaron, por ello nos saca este error,
+            Sobre el HEP SUMMARY y el LEAK SUMMARY, pues allí se encontraria esta memoria que fue perdida, pero como se menciono, es dificil saberlo
+            así, por los problemas sobre el MAC(High Sierra) y el valgrind, sin embargo como se mostro en las lineas anteriores, se nota que fueron los 12 bytes
+            mencionados.
+    
+    5. 
+        - Cuando se ejecuta el programa, este se ejecuta sin ningun problema, ver imagen (5(1))
+        - Sin embargo cuando se hace uso del valgrind(Ver iamgenes  5(2) y 5(2-2)), se pueden observar varias cosas como:
+            Invalid write of size 4
+                at 0x100000F75: main (5.c:12)
+            Address 0x100dedac0 is 0 bytes after a block of size 400 alloc'd
+                at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                by 0x100000F6A: main (5.c:11)
+            Aqui vemos que hay una escritura invalida, esto es porque se reservaron 100 posicones(0-99), e intentamos escribir sobre la posicion 100
+            del vector, esto significa que estamos escribiendo sobre una posicion a la cual no tenemos acceso,  por otro lado tambien obersvamos lo siguiente:
+                400 bytes in 1 blocks are definitely lost in loss record 34 of 44
+                    at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                    by 0x100000F6A: main (5.c:11) 
+            Esto es que los 400 bytes de memoria que reservamos, no los liberamos y como se explico en el punto anterior, es memoria desperdicia ya que no se libero.
+
+    6. 
+        - Cuando se ejecuta el programa, este se ejecuta sin ningun problema y aun asi, se acceder a la posicion de memoria aunque esta fuera liberada, imprimiendo el
+            valor en este caso de 1 como se puede ver en la imagen 6(1)
+        - Cuando se hace uso de valgrind (ver imagenes 6(2) y 6(2-2)), este si nos muestra un error mas especifico como se puede ver aqui:
+            Invalid read of size 4
+                at 0x100000F53: main (6.c:15)
+            Address 0x100ded934 is 4 bytes inside a block of size 400 free'd
+                at 0x1000AC463: free (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                by 0x100000F47: main (6.c:14)
+            Block was alloc'd at
+                at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                by 0x100000F0A: main (6.c:10)
+            En terminos simples, lo que nos esta diciendo es que la memoria fue liberada y por lo tanto es imposible acceder a dicha posicion.
+    
+    7.
+        - Como se puede observar en la imagen 7(1), el programa saca un error, diciendo que: 
+            7.out(98249,0x7fff90d54380) malloc: *** error for object 0x7fbf13c028c8: pointer being freed was not allocated
+            *** set a breakpoint in malloc_error_break to debug
+            Abort trap: 6
+            Es decir, que el puntero que fue liberado, no fue asignado nuevamente, y por esto es que el valor del puntero p, no se puede mostrar nuevamente ya que fue liberado.
+
+        - Aunque saca un error al ejecutarse, es necesario hacer uso de herramientas para entender un poco mas el problema, asi
+            se usa valgrind donde podemos observar (ver imagenes 7(2) y 7(2-2)):
+                Invalid free() / delete / delete[] / realloc()
+                    at 0x1000AC463: free (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                    by 0x100000F27: main (7.c:15)
+                Address 0x100ded938 is 8 bytes inside a block of size 400 alloc'd
+                    at 0x1000AC086: malloc (in /usr/local/Cellar/valgrind/HEAD-6a90a15/lib/valgrind/vgpreload_memcheck-amd64-darwin.so)
+                    by 0x100000ECA: main (7.c:9)
+            Esto nos esta diciendo que hay una liberacion invalida, ya que cuando se libera p, deberia liberarse todo el vector
+            a partir de la posicion 2 como se ve en el codigo, sin embargo, dicho vector o dicha memoria, esta siendo usada por data.
+    
+    8. 
