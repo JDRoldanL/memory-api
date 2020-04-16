@@ -108,3 +108,4 @@ Por la parte del gdb, se intento hacer un downgrade y crear un certificado para 
             a partir de la posicion 2 como se ve en el codigo, sin embargo, dicho vector o dicha memoria, esta siendo usada por data.
     
     8. 
+        - Ambas implementaciones presentan ventajas a la hora de manejar arreglos de tamaño variable, por ejemplo, para las listas ligadas es más eficiente la inserción de datos en puntos diferentes al final de la lista, mientra que con arreglos variables con realloc es posible ingresar múltiples elementos al final realizando del arreglo sin tener que hacer llamadas a malloc para cada uno de los elementos. Independiente de la implementación es necesario tener precaución a la hora de eliminar datos ya que es necesario liberar la memoria que ya no está en uso.
